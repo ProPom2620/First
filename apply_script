@@ -12,6 +12,150 @@ local whitelist = {--put the playerids that you wanna give admin commands in thi
 	-5
 }
 
+local bomb_man = function(plr)
+	task.spawn(function()
+		local char = plr.Character
+		local wind_up = 10
+		local explode_dur = 2
+		local sped_up = true
+
+		local bomb = ServerStorage.Bomb:Clone()
+		bomb.Name = "Bomb"
+		bomb.Parent = workspace
+		bomb:SetNetworkOwner(plr)
+
+		local weld = Instance.new("Weld")
+		weld.Parent = bomb
+		weld.Part0 = bomb
+		if char:FindFirstChild("HumanoidRootPart") then weld.Part1 = char:FindFirstChild("HumanoidRootPart") else return end
+
+		if char.Humanoid.WalkSpeed > 100 then sped_up = false else char.Humanoid.WalkSpeed *= 2 end
+		local tween = TweenService:Create(bomb, TweenInfo.new(wind_up, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {Size = bomb.Size * 4})
+		tween:Play()
+
+		for i = 1, 50 do
+			task.wait(wind_up * math.pow(0.8, i)/5)
+			if bomb.Color == Color3.new(0,0,0) then
+				bomb.Color = Color3.new(1,0,0)
+			else
+				bomb.Color = Color3.new(0,0,0)
+			end
+		end
+
+		weld:Destroy()
+		bomb.Color = Color3.new(1, 0.713725, 0.0470588)
+		bomb.Transparency = 0
+		bomb.CanCollide = false
+		bomb.Anchored = true
+
+		local bombed = {}
+		bomb.Touched:Connect(function(hit)
+			if hit.Parent:FindFirstChild("Humanoid") and not bombed[hit.Parent] then
+				bombed[hit.Parent] = true
+				local dmg = 100
+				hit.Parent.Humanoid:TakeDamage(dmg)
+			end
+		end)
+		if sped_up then char.Humanoid.WalkSpeed /= 2 end
+
+		tween = TweenService:Create(bomb, TweenInfo.new(explode_dur, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = bomb.Size * 8, Transparency = 1})
+		tween:Play()
+		tween.Completed:Wait()
+		bomb:Destroy()
+	end)
+end
+
+local spike_ball = function(user, target)
+	task.spawn(function()
+		local drop_dur = 1.5
+		local wait_dur = 2
+		local tp_dur = 0.1
+		local tp_num = 20
+		local phase = 1
+		local dmg_cd = {{}, {}}
+
+		local user_pos = user and user.Character and user.Character:FindFirstChild("Head") and user.Character.Head.Position
+		local target_pos = target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and target.Character.HumanoidRootPart.Position
+		if user_pos == nil or target_pos == nil then return end
+		
+		local SpikeBall = ServerStorage.SpikeBall:Clone()
+		
+		local rayOrigin = target_pos
+		local rayDirection = Vector3.new(0, -SpikeBall.Size.Y/2, 0)
+		local raycastParams = RaycastParams.new()
+		raycastParams.FilterDescendantsInstances = {target.Character}
+		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+		
+		target_pos = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+		if target_pos then target_pos = target_pos.Position else target_pos = target.Character.HumanoidRootPart.Position - Vector3.new(0, SpikeBall.Size.Y/2, 0) end
+		
+		SpikeBall.Anchored = true
+		SpikeBall.Position = user_pos + Vector3.new(math.random(-100,100),80,math.random(-100,100))
+		SpikeBall.Parent = workspace
+
+		SpikeBall.Touched:Connect(function(hit)
+			if hit.Parent:FindFirstChild("Humanoid") then
+				if phase == 1 and not dmg_cd[1][hit.Parent] then
+					dmg_cd[1][hit.Parent] = true
+					hit.Parent.Humanoid:TakeDamage(70)
+				elseif phase == 2 and not dmg_cd[2][hit.Parent] then
+					dmg_cd[2][hit.Parent] = true
+					task.delay(tp_dur * 2, function()
+						dmg_cd[2][hit.Parent] = nil
+					end)
+					hit.Parent.Humanoid:TakeDamage(14)
+					hit.Parent.Humanoid.Sit = true
+				end
+			end
+		end)
+
+		local hit_pos1 = ServerStorage.HitPos:Clone()
+		hit_pos1.Position = target_pos
+		hit_pos1.Transparency = 1
+		hit_pos1.CanCollide = false
+		hit_pos1.Anchored = true
+		hit_pos1.Size = Vector3.new(0,1,1) * SpikeBall.Size.X
+		hit_pos1.Parent = workspace
+
+		local tween = TweenService:Create(SpikeBall, TweenInfo.new(drop_dur*0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, drop_dur*0.6), {Position = target_pos})
+		local tween2 = TweenService:Create(hit_pos1, TweenInfo.new(drop_dur, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Transparency = 0})
+
+		tween:Play()
+		tween2:Play()
+		tween2.Completed:Wait()
+		hit_pos1:Destroy()
+
+		for i = 1, tp_num do
+			task.spawn(function()
+				local tp_pos = target_pos + Vector3.new(math.random(-60, 60), 0, math.random(-60, 60))
+
+				local hit_pos2 = ServerStorage.HitPos:Clone()
+				hit_pos2.Transparency = 1
+				hit_pos2.Position = tp_pos
+				hit_pos2.Anchored = true
+				hit_pos2.CanCollide = false
+				hit_pos2.Size = Vector3.new(0,1,1) * SpikeBall.Size.X
+				hit_pos2.Parent = workspace
+
+				local tween3 = TweenService:Create(hit_pos2, TweenInfo.new(wait_dur, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Transparency = 0})
+				tween3:Play()
+				tween3.Completed:Wait()
+				hit_pos2:Destroy()
+
+				if i == 1 then
+					phase = 2
+				end
+				SpikeBall.Position = tp_pos
+				if i == tp_num then
+					task.wait(tp_dur)
+					SpikeBall:Destroy()
+				end
+			end)
+			task.wait(tp_dur)
+		end
+	end)
+end
+
 local function my_tonumber(num)
 	num = tonumber(num)
 	if num == 1/0 or num ~= num then num =  nil end
@@ -46,7 +190,7 @@ local cmds = { -- all cmds should be lower case
 cmds.bomb = function(user, target)
 	local plrs = find_plr(user, target)
 	for _, plr in pairs(plrs) do
-		Combat_functions.bomb_man(plr)
+		bomb_man(plr)
 	end
 end
 
@@ -158,7 +302,7 @@ end
 cmds.spike = function(user, target)
 	local plrs = find_plr(user, target)
 	for _, plr in pairs(plrs) do
-		Combat_functions.spike_ball(user, plr)
+		spike_ball(user, plr)
 	end
 end
 
