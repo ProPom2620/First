@@ -1,0 +1,233 @@
+local Players = game:GetService("Players")
+local ServerStorage = game:GetService("ServerStorage")
+local TweenService = game:GetService("TweenService")
+local Combat_functions = require(script.Skill)
+local whitelist = {--put the playerids that you wanna give admin commands in this table
+	720377518,
+	724647225,
+	-1,
+	-2,
+	-3,
+	-4,
+	-5
+}
+
+local function my_tonumber(num)
+	num = tonumber(num)
+	if num == 1/0 or num ~= num then num =  nil end
+	return num
+end
+
+local function find_plr(user, name)
+	if name == "all" then return Players:GetChildren() end
+	if name == "others" then
+		local ret = Players:GetChildren()
+		table.remove(ret, table.find(ret, user))
+		return ret
+	end
+	if name == "random" then
+		return {Players:GetChildren()[math.random(1, #Players:GetChildren())]}
+	end
+	if name == nil or name == "me" then
+		return {user}
+	end
+	
+	local ret = {}
+	for _, plr in pairs(Players:GetChildren()) do
+		if name == plr.Name:sub(1, #name) then table.insert(ret, plr) end
+	end
+	return ret
+end
+
+local cmds = { -- all cmds should be lower case
+	
+}
+
+cmds.bomb = function(user, target)
+	local plrs = find_plr(user, target)
+	for _, plr in pairs(plrs) do
+		Combat_functions.bomb_man(plr)
+	end
+end
+
+cmds.char = function(user, target, target2)
+	if target2 == "random" then
+		target2 = math.random(1, 100000000)
+	end
+	
+	if tonumber(target2) == nil then
+		local suc = pcall(function()
+			target2 = Players:GetUserIdFromNameAsync(target2)
+		end)
+		if not suc then return end
+	else
+		target2 = tonumber(target2)
+	end
+	
+	local suc, desc = pcall(function()
+		return Players:GetHumanoidDescriptionFromUserId(target2)
+	end)
+	if not suc then return end
+	
+	local plrs = find_plr(user, target)
+	for _, plr in pairs(plrs) do
+		local hum = plr.Character and plr.Character:FindFirstChild("Humanoid")
+		if hum then hum:ApplyDescription(desc) end
+	end
+end
+
+cmds.dmg = function(user, target, dmg)
+	local plrs = find_plr(user, target)
+
+	for _, plr in pairs(plrs) do
+		local hum = plr.Character and plr.Character:FindFirstChild("Humanoid")
+		if hum then hum.Health = math.max(hum.Health - (my_tonumber(dmg) or 0), 0) end
+	end
+end
+
+cmds.damage = cmds.dmg
+
+cmds.heal = function(user, target, dmg)
+	local plrs = find_plr(user, target)
+
+	for _, plr in pairs(plrs) do
+		local hum = plr.Character and plr.Character:FindFirstChild("Humanoid")
+		if hum then hum.Health = math.max(hum.Health + (my_tonumber(dmg) or 0), 0) end
+	end
+end
+
+cmds.health = function(user, target, health)
+	if my_tonumber(health) == nil then return end
+	local plrs = find_plr(user, target)
+	for _, plr in pairs(plrs) do
+		local hum = plr.Character and plr.Character:FindFirstChild("Humanoid")
+		if hum then hum.MaxHealth = my_tonumber(health)  hum.Health = hum.MaxHealth end
+	end
+end
+
+cmds.invis = function(user, target)
+	local plrs = find_plr(user, target)
+	for _, plr in pairs(plrs) do
+		if plr.Character == nil then continue end
+		for _, part in pairs(plr.Character:GetDescendants()) do
+			if part:IsA("BasePart") or part:IsA("Decal") then
+				part.Transparency = 1
+			end
+		end
+	end
+end
+
+cmds.invisible = cmds.invis
+
+cmds.jump = function(user, target, num)
+	if my_tonumber(num) == nil then return end
+	local plrs = find_plr(user, target)
+	for _, plr in pairs(plrs) do
+		local hum = plr.Character and plr.Character:FindFirstChild("Humanoid")
+		if hum then hum.JumpHeight = my_tonumber(num) end
+	end
+end
+
+cmds.kick = function(user, target, msg)
+	if target == nil then return end
+	
+	local plrs = find_plr(user, target)
+	for _, plr in pairs(plrs) do
+		plr:Kick(msg)
+	end
+end
+
+cmds.kill = function(user, target)
+	local plrs = find_plr(user, target)
+
+	for _, plr in pairs(plrs) do
+		local hum = plr.Character and plr.Character:FindFirstChild("Humanoid")
+		if hum then hum.Health = 0 end
+	end
+end
+
+cmds.speed = function(user, target, num)
+	if my_tonumber(num) == nil then return end
+	local plrs = find_plr(user, target)
+	for _, plr in pairs(plrs) do
+		local hum = plr.Character and plr.Character:FindFirstChild("Humanoid")
+		if hum then hum.WalkSpeed = my_tonumber(num) end
+	end
+end
+
+cmds.spike = function(user, target)
+	local plrs = find_plr(user, target)
+	for _, plr in pairs(plrs) do
+		Combat_functions.spike_ball(user, plr)
+	end
+end
+
+cmds.tp = function(user, target, target2)
+	local plrs = find_plr(user, target2)
+	local hrp
+	for _, plr in pairs(plrs) do
+		hrp = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+		if hrp then break end
+	end
+	if hrp == nil then return end
+	
+	plrs = find_plr(user, target)
+	for _, plr in pairs(plrs) do
+		local hrp2 = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+		if hrp2 then
+			hrp2.CFrame = hrp.CFrame + Vector3.new(math.random(-100, 100), math.random(0, 100), math.random(-100, 100))/100
+		end
+	end
+end
+
+cmds.teleport = cmds.tp
+
+cmds.uninvis = function(user, target)
+	local plrs = find_plr(user, target)
+	for _, plr in pairs(plrs) do
+		if plr.Character == nil then continue end
+		for _, part in pairs(plr.Character:GetDescendants()) do
+			if part:IsA("BasePart") or part:IsA("Decal") then
+				if part.Name == "HumanoidRootPart" then continue end
+				part.Transparency = 0
+			end
+		end
+	end
+end
+
+cmds.uninvisible = cmds.uninvis
+
+Players.PlayerAdded:Connect(function(plr)
+	if table.find(whitelist, plr.UserId) == nil then return end
+	
+	plr.Chatted:Connect(function(msg)
+		if #msg <= 1 or msg:sub(1,1) ~= ";" then return end
+		local parameter = msg:sub(2, #msg):split(" ")
+
+		if string.lower(parameter[1]) == "loop" then
+			table.remove(parameter, 1)
+			
+			local para1 = 100
+			local para2 = 0.1
+			
+			if parameter[1] == nil then return end
+			local code = cmds[string.lower(table.remove(parameter, 1))]
+			
+			if typeof(code) ~= "function" then return end
+			
+			for i = 1, para1 do
+				task.spawn(function()
+					code(plr, table.unpack(parameter))
+				end)
+				task.wait(para2)
+			end
+			
+			return
+		end
+		
+		local code = cmds[string.lower(table.remove(parameter, 1))]
+		
+		if typeof(code) ~= "function" then return end
+		code(plr, table.unpack(parameter))
+	end)
+end)
