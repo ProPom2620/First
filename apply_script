@@ -1,7 +1,6 @@
 local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 local TweenService = game:GetService("TweenService")
-local Combat_functions = require(script.Skill)
 local whitelist = {--put the playerids that you wanna give admin commands in this table
 	720377518,
 	724647225,
